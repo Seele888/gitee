@@ -15,21 +15,18 @@ lock = Lock()
 
 
 def get(sha, path):
-    url_list = [f'https://cdn.jsdelivr.net/gh/{repo}@{sha}/{path}',
-                f'https://ghproxy.com/https://raw.githubusercontent.com/{repo}/{sha}/{path}']
     retry = 3
     while True:
-        for url in url_list:
-            try:
-                r = requests.get(url)
-                if r.status_code == 200:
-                    return r.content
-            except requests.exceptions.ConnectionError:
-                print(f'获取失败: {path}')
-                retry -= 1
-                if not retry:
-                    print(f'超过最大重试次数: {path}')
-                    raise
+        try:
+            r = requests.get(f'https://gitee.com/{repo}/raw/{sha}/{path}')
+            if r.status_code == 200:
+                return r.content
+        except requests.exceptions.ConnectionError:
+            print(f'获取失败: {path}')
+            retry -= 1
+            if not retry:
+                print(f'超过最大重试次数: {path}')
+                raise
 
 
 def get_manifest(sha, path, steam_path: Path, app_id=None):
@@ -107,7 +104,7 @@ def get_steam_path():
 
 
 def main(app_id):
-    url = f'https://api.github.com/repos/{repo}/branches/{app_id}'
+    url = f'https://gitee.com/api/v5/repos/{repo}/branches/{app_id}'
     r = requests.get(url)
     if 'commit' in r.json():
         sha = r.json()['commit']['sha']
@@ -166,7 +163,7 @@ def app(app_path):
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('-r', '--repo', default='wxy1343/ManifestAutoUpdate')
+parser.add_argument('-r', '--repo', default='isKoi/manifest-auto-update')
 parser.add_argument('-a', '--app-id')
 parser.add_argument('-p', '--app-path')
 args = parser.parse_args()
