@@ -148,10 +148,10 @@ class Merge:
         logging.basicConfig(format='%(asctime)s - %(pathname)s[line:%(lineno)d] - %(levelname)s: %(message)s',
                             level=level)
         self.repo = git.Repo()
+        self.token = token
         self.remote_head_dict = self.get_remote_head()
         self.repo_url = '/'.join(self.repo.git.remote('get-url', 'origin').split('/')[-2:])
-        self.headers = {'Accept': 'application/vnd.github+json',
-                        'Authorization': f'Bearer {token}', 'X-GitHub-Api-Version': '2022-11-28'}
+        self.headers = {'Content-Type': 'application/json;charset=UTF-8'}
         self.pr_list = self.get_all_pr()
         self.local_heads = [i.name for i in self.repo.heads]
         self.author_name = None
@@ -160,29 +160,17 @@ class Merge:
     def get_user_email(self):
         if not self.author_name:
             return
-        url = f'https://api.github.com/users/{self.author_name}/events/public'
-        r = requests.get(url, headers=self.headers)
+        url = f'https://gitee.com/api/v5/user?access_token={self.token}'
+        r = requests.get(url, headers=self.headers).json()
         email_set = set()
-        for i in r.json():
-            if not (payload := i.get('payload')):
-                continue
-            if not (commits := payload.get('commits')):
-                continue
-            for commit in commits:
-                if not (author := commit.get('author')):
-                    continue
-                if not (name := author.get('name')):
-                    continue
-                if name != self.author_name:
-                    continue
-                if not (email := author.get('email')):
-                    continue
-                email_set.add(email)
+        if r['name'] == self.author_name:
+            if r['email'] is not None:
+                email_set.add(r['email'])
         if len(email_set) == 1:
             return email_set.pop()
         elif len(email_set) > 1:
             for i in email_set:
-                if not i.endswith('@users.noreply.github.com'):
+                if not i.endswith('@user.noreply.gitee.com'):
                     return i
             return email_set.pop()
 
@@ -199,7 +187,7 @@ class Merge:
         page = 1
         self.log.info('Getting pr list!')
         while True:
-            url = f'https://api.github.com/repos/{self.repo_url}/pulls?per_page=100&page={page}'
+            url = f'https://gitee.com/api/v5/repos/{self.repo_url}/pulls?state=open&sort=created&direction=desc&page={page}'
             r = requests.get(url, headers=self.headers)
             if not r.json():
                 break
@@ -236,8 +224,8 @@ class Merge:
         source_depot.merge_depot(depot)
 
     def close_pr(self, num):
-        url = f'https://api.github.com/repos/{self.repo_url}/pulls/{num}'
-        requests.patch(url, headers=self.headers, json={'state': 'closed'})
+        url = f'https://gitee.com/api/v5/repos/{self.repo_url}/pulls/{num}'
+        requests.patch(url, headers=self.headers, json={'state': 'closed','access_token':f'{self.token}'})
 
     def merge_all(self):
         for i in self.pr_list:
@@ -253,7 +241,7 @@ class Merge:
                     if not self.author_email:
                         self.author_email = self.get_user_email()
                     if not self.author_email:
-                        self.author_email = f'{user_id}+{self.author_name}@users.noreply.github.com'
+                        self.author_email = f'{user_id}+{self.author_name}@user.noreply.gitee.com'
                 self.log.info(
                     f'Merging pr {num} to appid {app_id} from {git.Actor(self.author_name, self.author_email).__repr__()}!')
                 self.merge(num, app_id)

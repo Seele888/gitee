@@ -18,10 +18,10 @@ class Pr:
                             level=level)
         self.tqdm = None
         self.repo = git.Repo(repo)
+        self.token = token
         self.source_repo = source_repo
         self.add_source_repo()
-        self.headers = {'Accept': 'application/vnd.github+json',
-                        'Authorization': f'Bearer {token}', 'X-GitHub-Api-Version': '2022-11-28'}
+        self.headers = {'Content-Type': 'application/json;charset=UTF-8'}
         self.owner_name, self.repo_name = self.repo.remote().url.split('/')[-2:]
         self.source_owner_name, self.source_repo_name = self.repo.remote('source').url.split('/')[-2:]
         self.origin_app_list, self.origin_tag_list = self.get_refs_list()
@@ -36,7 +36,7 @@ class Pr:
         pr_list = []
         page = 1
         while True:
-            url = f'https://api.github.com/repos/{self.source_owner_name}/{self.source_repo_name}/pulls?per_page=100&page={page}'
+            url = f'https://gitee.com/api/v5/repos/{self.source_owner_name}/{self.source_repo_name}/pulls?state=open&sort=created&direction=desc&page={page}'
             r = requests.get(url, headers=self.headers)
             if not r.json():
                 break
@@ -121,7 +121,7 @@ class Pr:
                 app_id_list.append(app_id)
         self.log.debug(str(app_id_list))
         for app_id in app_id_list:
-            url = f'https://api.github.com/repos/{self.source_owner_name}/{self.source_repo_name}/pulls'
+            url = f'https://gitee.com/api/v5/repos/{self.source_owner_name}/{self.source_repo_name}/pulls'
             r = requests.post(url, headers=self.headers,
                               json={'title': str(app_id), 'head': f'{self.owner_name}:{app_id}', 'base': 'main'})
             if r.status_code == 201:
@@ -143,7 +143,7 @@ class Pr:
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('-r', '--repo', default='https://github.com/wxy1343/ManifestAutoUpdate')
+parser.add_argument('-r', '--repo', default='https://gitee.com/isKoi/manifest-auto-update')
 parser.add_argument('-t', '--token')
 parser.add_argument('-l', '--level', default='INFO')
 
